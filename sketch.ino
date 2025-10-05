@@ -297,6 +297,8 @@ String fmtHumanDateUK_fromISO(const String& iso) {
   tm loc{}; localtime_uk(utc, &loc);
   return fmtHumanDate(loc);
 }
+/************** PART 2 / 4 — END **********************************************/
+
 /************** PART 3 / 4 — START ********************************************
  * Time helpers (defs), flat 46×46 icons, banner, footer, main UI (Layout D)
  *****************************************************************************/
@@ -404,28 +406,27 @@ void drawFooter(const String& identifier) {
 /******************************************************************************
  * FINAL UI LAYOUT (46×46 Icons + Labels Close Underneath, Centered + Pulsing Red Alert)
  ******************************************************************************/
-// --- Pulsing red for alert (helper stays same) ---
+// --- Pulsing red (updated speed ~2s per cycle) ---
 uint16_t pulsingRedColor(float intensity) {
-  uint8_t r = 50 + (uint8_t)(intensity * 205);
+  uint8_t r = 80 + (uint8_t)(intensity * 175);  // 80-255 for faster pulse
   return tft.color565(r, 0, 0);
 }
 
 /******************************************************************************
- * FINAL UI LAYOUT (Adjusted 2px down, blinking border comes from loop now)
+ * FINAL UI LAYOUT (With No Collection Logic + Improved Spacing)
  ******************************************************************************/
 void drawUI(const BinData& data, const String& nextDate, bool /*forceRedAlert*/) {
   int bType = bannerTypeForDate(nextDate);
 
   tft.fillScreen(TFT_BLACK);
 
-  // Draw static banner/header
+  // Header + Banner
   drawBanner(bType);
 
-  // Header text
   String dateHuman = fmtHumanDateUK_fromISO(nextDate);
   const int hasBanner = (bType != 0);
-  const int topPad   = hasBanner ? 56 : 34;
-  const int gapTitle = 22;
+  const int topPad   = hasBanner ? 60 : 36;  // shifted down slightly
+  const int gapTitle = 24;
   const int gapRow   = 22;
 
   tft.setTextDatum(TC_DATUM);
@@ -433,25 +434,42 @@ void drawUI(const BinData& data, const String& nextDate, bool /*forceRedAlert*/)
   tft.drawString("Next collection", tft.width()/2, topPad, 2);
   tft.drawString(dateHuman,        tft.width()/2, topPad + gapTitle, 4);
 
+  // Collection Bins
   auto it = data.schedule.find(nextDate);
   if (it == data.schedule.end() || it->second.empty()) {
-    tft.drawString("No collection", tft.width()/2, topPad + gapTitle + 60, 2);
+    // --- NO COLLECTION STATE ---
+    String nextReal = findNextDate(data.dates, nextDate);
+    String nextHuman = fmtHumanDateUK_fromISO(nextReal);
+
+    // Yellow pill for NO COLLECTION
+    String msg = "NO COLLECTION";
+    int approxCharW = 10;
+    int rectW = msg.length()*approxCharW + 14;
+    int rectH = 20;
+    int yMid = topPad + gapTitle + 50;
+
+    tft.fillRoundRect(tft.width()/2 - rectW/2, yMid - rectH/2, rectW, rectH, 6, TFT_YELLOW);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(TFT_BLACK, TFT_YELLOW);
+    tft.drawString(msg, tft.width()/2, yMid, 2);
+
+    // NEXT DATE BELOW
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("NEXT: " + nextHuman, tft.width()/2, yMid + 26, 2);
     return;
   }
 
   std::vector<String> bins = it->second;
   int n = (int)bins.size(); if (n > 3) n = 3;
 
-  // Icon row
   const int iconSize = 46;
   const int colGap   = 24;
   int totalWidth = n*iconSize + (n-1)*colGap;
   int startX = (tft.width() - totalWidth)/2;
 
-  // Adjust icon vertical placement here:
-bool ICONS_UP = true;  // <--- set to false if you prefer them lower
-int iconTopY  = topPad + gapTitle + gapRow + (ICONS_UP ? 16 : 20);
-int labelTopY = iconTopY + iconSize + 3; //4x gap between icons
+  // ✅ Adjusted further down 2px
+  int iconTopY  = topPad + gapTitle + gapRow + 18;
+  int labelTopY = iconTopY + iconSize + 2;
 
   for (int i=0; i<n; ++i) {
     int x = startX + i*(iconSize + colGap);
@@ -462,8 +480,8 @@ int labelTopY = iconTopY + iconSize + 3; //4x gap between icons
     String label = prettyBin(bins[i]);
     int xCenter = startX + i*(iconSize + colGap) + iconSize/2;
 
-    int approxCharW = 10;
-    int rectW = label.length()*approxCharW + 14;
+    int approxCharW2 = 10;
+    int rectW = label.length()*approxCharW2 + 14;
     int rectH = 18;
 
     tft.fillRoundRect(xCenter - rectW/2, labelTopY - rectH/2, rectW, rectH, 6, TFT_BLACK);
@@ -473,6 +491,7 @@ int labelTopY = iconTopY + iconSize + 3; //4x gap between icons
   }
 }
 
+/************** PART 3 / 4 — END **********************************************/
 
 /************** PART 4 / 4 — START ********************************************
  * Night mode, demo, test screens, refresh, serial, setup, loop
@@ -706,12 +725,11 @@ void loop() {
 
   uint32_t nowMs = millis();
 
-  // ✅ Update footer clock colon every 500ms
+  // ✅ BLINK CLOCK COLON WITHOUT SHIFTING TEXT
   if (nowMs - lastColonBlink > 500) {
     colonVisible = !colonVisible;
     lastColonBlink = nowMs;
 
-    // Redraw footer with colon toggled
     struct tm lt{};
     if (nowLocalUK(lt)) {
       char buf[32];
@@ -722,9 +740,9 @@ void loop() {
     }
   }
 
-  // ✅ Pulsing red border in alert mode
+  // ✅ PULSING BORDER IN ALERT MODE — FASTER NOW
   if (bannerTypeForDate(g_nextDate) == 2) {
-    float t = (millis() % 4000) / 2000.0;
+    float t = (millis() % 2000) / 1000.0;       // 0→2s
     float intensity = (t < 1.0) ? t : (2.0 - t);
     uint16_t borderCol = pulsingRedColor(intensity);
 
@@ -732,7 +750,14 @@ void loop() {
     for (int i=0;i<3;i++) tft.drawCircle(cx, cy, min(cx, cy) - 2 - i, borderCol);
   }
 
-  // ✅ Once-per-minute updates
+  // ✅ ENSURE YELLOW TEST MODE SHOWS BORDER
+  if (bannerTypeForDate(g_nextDate) == 1 || g_bannerOverride == 1) {
+    uint16_t borderCol = TFT_YELLOW;
+    int cx = tft.width()/2, cy = tft.height()/2;
+    for (int i=0;i<3;i++) tft.drawCircle(cx, cy, min(cx, cy) - 2 - i, borderCol);
+  }
+
+  // ✅ MINUTE TICK REFRESH
   if (nowMs - lastMinute > 60000) {
     lastMinute = nowMs;
 
