@@ -9,6 +9,7 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <limits.h>
 
 
 // ---- WIFI (update if you change credentials) ----
@@ -234,6 +235,62 @@ String fmtHumanDateUK_fromISO(const String& iso) {
   char buf[32];
   strftime(buf,sizeof(buf),"%a %d %b",&t);
   return String(buf);
+}
+
+// Parse JSON schedule (expected shape matches 15b.json)
+bool parseScheduleFromJson(const String& payload, BinData& out) {
+  StaticJsonDocument<16 * 1024> doc;
+  if (deserializeJson(doc, payload)) return false;
+
+  out.schedule.clear();
+  out.dates.clear();
+
+  // optional identifier (keeps footer label in sync with feed)
+  String ident = doc["identifier"] | "";
+  if (ident.length()) g_identifier = ident;
+
+  JsonObject sched = doc["schedule"].as<JsonObject>();
+  for (JsonPair kv : sched) {
+    String date = kv.key().c_str();
+    out.dates.push_back(date);
+
+    std::vector<String> bins;
+    for (JsonVariant v : kv.value().as<JsonArray>()) {
+      bins.push_back(String(v.as<const char*>()));
+    }
+    out.schedule[date] = bins;
+  }
+
+  std::sort(out.dates.begin(), out.dates.end());
+  return true;
+}
+
+// Pick the next collection date on/after today (falls back to latest known)
+String pickNextDateFrom(const std::vector<String>& sortedDates, const String& todayISO) {
+  auto toKey = [](const String& iso) -> long {
+    if (iso.length() < 10) return LONG_MAX;
+    int y = iso.substring(0,4).toInt();
+    int m = iso.substring(5,7).toInt();
+    int d = iso.substring(8,10).toInt();
+    return (long) y*10000L + (long) m*100L + (long) d;
+  };
+
+  long todayKey = toKey(todayISO);
+  long best = LONG_MAX;
+  String candidate;
+
+  for (const String& d : sortedDates) {
+    long k = toKey(d);
+    if (k >= todayKey && k < best) {
+      best = k;
+      candidate = d;
+    }
+  }
+
+  if (candidate.length() == 0 && !sortedDates.empty()) {
+    candidate = sortedDates.back();
+  }
+  return candidate;
 }
 /*=== END PART 2/4 ===========================================================*/
 /*=== PART 3/4: UI (Banner/Icons/Truck) ======================================*/
