@@ -47,15 +47,89 @@ String todayISO_UK();
 void drawUI(const BinData& data, const String& nextDate, bool forceRedAlert=false);
 void drawFooter(const String& idTag);
 void pollSerial();
-// Forward declarations (fixes "was not declared in this scope")
-bool parseScheduleFromJson(const String& payload, BinData& out);
+
 
 bool refreshDataRaw(bool verbose);
 uint16_t pulsingRedColor(float intensity);
 int bannerTypeForDate(const String& nextDateISO);
 void drawBanner(int type);
 String fmtHumanDateUK_fromISO(const String& iso);
-String pickNextDateFrom(const std::vector<String>& sortedDates, const String& todayISO);
+String pickNextDateFrom(const std::vector<String>& sortedDates,
+                        const String& todayISO);
+bool parseScheduleFromJson(const String& payload, BinData& out);
+
+
+
+
+String pickNextDateFrom(const std::vector<String>& sortedDates,
+                        const String& todayISO) {
+    if (sortedDates.empty()) {
+        return "";
+    }
+
+    String best = "";
+    for (const auto& d : sortedDates) {
+        if (d >= todayISO) {
+            if (best == "" || d < best) {
+                best = d;
+            }
+        }
+    }
+
+    // If no date is >= today, just return the first one
+    if (best == "" && !sortedDates.empty()) {
+        best = sortedDates.front();
+    }
+
+    return best;
+}
+
+bool parseScheduleFromJson(const String& payload, BinData& out) {
+    StaticJsonDocument<8192> doc;   // plenty for your JSON size
+
+    DeserializationError err = deserializeJson(doc, payload);
+    if (err) {
+        Serial.print("[ERROR] JSON parse failed: ");
+        Serial.println(err.c_str());
+        return false;
+    }
+
+    JsonObject root = doc.as<JsonObject>();
+
+    // ---- Basic fields ----
+    if (root.containsKey("lastUpdated"))
+        out.lastUpdated = (const char*)root["lastUpdated"];
+
+    if (root.containsKey("today"))
+        out.today = (const char*)root["today"];
+
+    // ---- Helper Lambda for arrays ----
+    auto loadArray = [&](std::vector<String>& target, JsonArrayConst arr) {
+        target.clear();
+        for (JsonVariantConst v : arr) {
+            if (v.is<const char*>()) {
+                target.push_back(String((const char*)v));
+            }
+        }
+    };
+
+    // ---- Load each waste stream (only if present) ----
+    if (root.containsKey("refuse"))
+        loadArray(out.refuseDates, root["refuse"].as<JsonArrayConst>());
+
+    if (root.containsKey("recycling"))
+        loadArray(out.recyclingDates, root["recycling"].as<JsonArrayConst>());
+
+    if (root.containsKey("garden"))
+        loadArray(out.gardenDates, root["garden"].as<JsonArrayConst>());
+
+    if (root.containsKey("food"))
+        loadArray(out.foodDates, root["food"].as<JsonArrayConst>());
+
+    return true;
+}
+
+
 
 // ---- Boot helper (safe centered text) ----
 static void showCenteredSafe(const String& msg, uint16_t color=TFT_WHITE) {
