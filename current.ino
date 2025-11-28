@@ -1,10 +1,10 @@
-/*=== PART 1/4: Includes + Globals + Setup ==================================*/
+/*===Includes + Globals + Setup ==================================*/
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <TFT_eSPI.h>
-#include "garbage_truck.h"   // <- you confirmed filename = A (garbage_truck.h)
+#include "garbage_truck.h" 
 #include <time.h>
 #include <map>
 #include <vector>
@@ -263,7 +263,6 @@ void setup() {
 }
 /*=== END PART 1/4 ===========================================================*/
 /*=== PART 2/4: Networking (raw TCP) + Parser + Formatting ===================*/
-/*=== REPLACE fetchJsonRawTCP WITH THIS (adds redirect detect) ===============*/
 
 String fetchJsonHttpsInsecure(const char* host, const char* path) {
   WiFiClientSecure client;
