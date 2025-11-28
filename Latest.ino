@@ -12,8 +12,8 @@
 
 
 // ---- WIFI (update if you change credentials) ----
-static const char* WIFI_SSID = "Plumbing";
-static const char* WIFI_PASS = "2hphdwdFwkpr";
+static const char* WIFI_SSID = "";
+static const char* WIFI_PASS = "";
 
 // ---- JSON host/path (raw TCP HTTP via jsDelivr; no TLS) ----
 static const char* JSON_HOST = "raw.githubusercontent.com";
