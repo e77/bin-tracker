@@ -350,7 +350,7 @@ String fetchJson() {
 bool refreshDataRaw(bool verbose) {
   if (verbose) showCenteredSafe("Fetching JSON...", TFT_WHITE);
 
-  // *** IMPORTANT: use HTTPS, not raw TCP on port 80 ***
+  // IMPORTANT: Use HTTPS helper, not raw TCP
   String payload = fetchJsonHttpsInsecure(JSON_HOST, JSON_PATH);
 
   if (payload.length() == 0) {
@@ -358,11 +358,11 @@ bool refreshDataRaw(bool verbose) {
     return false;
   }
 
-  // Debug: first few chars to confirm it's JSON (optional)
-  Serial.println("[DEBUG] First 120 chars of payload:");
-  Serial.println(payload.substring(0, 120));
+  // Debug: log start of payload so we can see if it's JSON or HTML
+  Serial.println("[DEBUG] First 160 chars of payload:");
+  Serial.println(payload.substring(0, 160));
 
-  // If there is any junk before the JSON (BOM, spaces, etc.), trim to first '{'
+  // Trim off any junk before the first '{' (BOM, whitespace, etc.)
   int bracePos = payload.indexOf('{');
   if (bracePos > 0) {
     payload = payload.substring(bracePos);
@@ -370,6 +370,7 @@ bool refreshDataRaw(bool verbose) {
 
   BinData tmp;
   if (!parseScheduleFromJson(payload, tmp)) {
+    Serial.println("[ERROR] JSON parse still failing after trim");
     if (verbose) showCenteredSafe("Parse failed", TFT_RED);
     return false;
   }
@@ -390,6 +391,7 @@ bool refreshDataRaw(bool verbose) {
     tft.drawString(human, tft.width()/2, tft.height()/2 + 10, 4);
     delay(700);
   }
+
   return true;
 }
 
