@@ -18,7 +18,7 @@ static const char* WIFI_PASS = "2hphdwdFwkpr";
 // ---- JSON endpoint ----
 // Host + path of your GitHub raw JSON (or wherever you serve it)
 static const char* JSON_HOST = "raw.githubusercontent.com";
-static const char* JSON_PATH = "/ChrisWorrall/surrey-bins-json/refs/heads/main/15B.json";
+static const char* JSON_PATH = "/e77/bin-tracker/main/15b.json";
 
 // ---- Retry intervals ----
 static const unsigned long JSON_RETRY_INTERVAL_MS = 15UL * 60UL * 1000UL; // 15 minutes
