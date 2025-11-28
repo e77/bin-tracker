@@ -349,11 +349,30 @@ String fetchJson() {
 
 bool refreshDataRaw(bool verbose) {
   if (verbose) showCenteredSafe("Fetching JSON...", TFT_WHITE);
-  String payload = fetchJsonRawTCP(JSON_HOST, JSON_PATH);
-  if (payload.length()==0) { if (verbose) showCenteredSafe("Fetch failed", TFT_YELLOW); return false; }
+
+  // *** IMPORTANT: use HTTPS, not raw TCP on port 80 ***
+  String payload = fetchJsonHttpsInsecure(JSON_HOST, JSON_PATH);
+
+  if (payload.length() == 0) {
+    if (verbose) showCenteredSafe("Fetch failed", TFT_YELLOW);
+    return false;
+  }
+
+  // Debug: first few chars to confirm it's JSON (optional)
+  Serial.println("[DEBUG] First 120 chars of payload:");
+  Serial.println(payload.substring(0, 120));
+
+  // If there is any junk before the JSON (BOM, spaces, etc.), trim to first '{'
+  int bracePos = payload.indexOf('{');
+  if (bracePos > 0) {
+    payload = payload.substring(bracePos);
+  }
 
   BinData tmp;
-  if (!parseScheduleFromJson(payload, tmp)) { if (verbose) showCenteredSafe("Parse failed", TFT_RED); return false; }
+  if (!parseScheduleFromJson(payload, tmp)) {
+    if (verbose) showCenteredSafe("Parse failed", TFT_RED);
+    return false;
+  }
 
   String today = todayISO_UK();
   String nextD = pickNextDateFrom(tmp.dates, today);
@@ -373,6 +392,7 @@ bool refreshDataRaw(bool verbose) {
   }
   return true;
 }
+
 
 // ---- Formatting helpers ----
 String fmtHumanDateUK_fromISO(const String& iso) {
