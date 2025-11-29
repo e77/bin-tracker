@@ -470,6 +470,65 @@ int bannerTypeForDate(const String& nextDateISO) {
   return 0;                     // past → blue/none
 }
 
+// Simple vector truck icon so we don't depend on a bitmap format
+void drawTruckIcon(int cx, int cy) {
+  const int w  = 80;   // overall width
+  const int h  = 40;   // overall height
+
+  int x0 = cx - w/2;
+  int y0 = cy - h/2;
+
+  // Trailer (bin)
+  int trailerW = 48;
+  int trailerH = 24;
+  int trailerX = x0;
+  int trailerY = y0 + 4;
+  uint16_t trailerCol = tft.color565(0, 120, 0);   // green body
+  tft.fillRoundRect(trailerX, trailerY, trailerW, trailerH, 4, trailerCol);
+  tft.drawRoundRect(trailerX, trailerY, trailerW, trailerH, 4, TFT_BLACK);
+
+  // Cab
+  int cabW = 22;
+  int cabH = 20;
+  int cabX = trailerX + trailerW;
+  int cabY = y0 + 8;
+  uint16_t cabCol = tft.color565(200, 200, 200);
+  tft.fillRoundRect(cabX, cabY, cabW, cabH, 4, cabCol);
+  tft.drawRoundRect(cabX, cabY, cabW, cabH, 4, TFT_BLACK);
+
+  // Window
+  int winW = 10;
+  int winH = 10;
+  int winX = cabX + 4;
+  int winY = cabY + 3;
+  tft.fillRect(winX, winY, winW, winH, TFT_CYAN);
+  tft.drawRect(winX, winY, winW, winH, TFT_BLACK);
+
+  // Divider between cab and trailer
+  tft.drawFastVLine(trailerX + trailerW, trailerY, trailerH, TFT_BLACK);
+
+  // Ground line (optional)
+  int groundY = trailerY + trailerH + 6;
+
+  // Wheels
+  int wheelR = 5;
+  int wheelY = groundY;
+  int wheel1X = trailerX + 10;
+  int wheel2X = trailerX + trailerW - 10;
+  int wheel3X = cabX + cabW/2;
+
+  uint16_t tyreCol = TFT_BLACK;
+  uint16_t hubCol  = TFT_DARKGREY;
+  tft.fillCircle(wheel1X, wheelY, wheelR, tyreCol);
+  tft.fillCircle(wheel2X, wheelY, wheelR, tyreCol);
+  tft.fillCircle(wheel3X, wheelY, wheelR, tyreCol);
+  tft.fillCircle(wheel1X, wheelY, wheelR-2, hubCol);
+  tft.fillCircle(wheel2X, wheelY, wheelR-2, hubCol);
+  tft.fillCircle(wheel3X, wheelY, wheelR-2, hubCol);
+}
+
+
+
 void drawBanner(int type) {
   if (type == 0) return;
   uint16_t bg = (type==1)?TFT_YELLOW:tft.color565(220,30,30);
@@ -480,13 +539,27 @@ void drawBanner(int type) {
 }
 
 void drawFooter(const String& idTag) {
-  // Place ID just above the clock bar
   int footerH = 18;
   int footerY = tft.height() - footerH - 16;
-  tft.setTextDatum(BR_DATUM);
+  tft.setTextDatum(BC_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(idTag, tft.width()-4, footerY - 1, 1);
+  tft.drawString(idTag, tft.width()/2, footerY - 1, 1);
 }
+
+void drawTruckTest() {
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString("Truck test", tft.width()/2, 18, 2);
+
+  int truckX = (tft.width()  - garbageTruckWidth)  / 2;
+  int truckY = (tft.height() - garbageTruckHeight) / 2;
+   int cx = tft.width()  / 2;
+    int cy = tft.height() / 2;
+    drawTruckIcon(cx, cy);
+}
+
+
 
 void drawUI(const BinData& data, const String& nextDate, bool /*forceRedAlert*/) {
   tft.fillScreen(TFT_BLACK);
@@ -523,7 +596,9 @@ void drawUI(const BinData& data, const String& nextDate, bool /*forceRedAlert*/)
 
     int truckX = (tft.width()  - garbageTruckWidth)  / 2;
     int truckY = (tft.height() - garbageTruckHeight) / 2;
-    tft.pushImage(truckX, truckY, garbageTruckWidth, garbageTruckHeight, garbageTruckBitmap);
+   int cx = tft.width()  / 2;
+    int cy = tft.height() / 2;
+    drawTruckIcon(cx, cy);
 
     tft.setTextDatum(BC_DATUM);
     tft.drawString("Please return to storage", tft.width()/2, tft.height()-30, 2);
@@ -639,11 +714,11 @@ void pollSerial() {
           drawUI(g_data, g_nextDate, true);
           drawFooter(g_identifier);
 
-        } else if (cmd.equalsIgnoreCase("TEST TRUCK")) {
-          // Force nextDate to today; if it's after 06:00 this will show the truck
-          g_nextDate = todayISO_UK();
-          drawUI(g_data, g_nextDate, false);
+               } else if (cmd.equalsIgnoreCase("TEST TRUCK")) {
+          // Show truck screen regardless of date/time logic
+          drawTruckTest();
           drawFooter(g_identifier);
+
 
 
         } else if (cmd.equalsIgnoreCase("TEST NORMAL")) {
@@ -684,7 +759,7 @@ void loop() {
     }
   }
 
-  // 1-second tick: clock + status ring
+    // 1-second tick: clock only
   if (nowMs - lastTick1s > 1000) {
     lastTick1s = nowMs;
 
@@ -701,56 +776,53 @@ void loop() {
       tft.fillRect(0, footerY, tft.width(), footerH, TFT_BLACK);
       tft.drawString(String(buf), tft.width()/2, footerY + footerH - 3, 1);
     }
+  }
 
-       // ---- STATUS RING (imminent only, smooth breathing) ----
-    static uint32_t lastRingUpdate = 0;
-    if (nowMs - lastRingUpdate > 80) {   // update ~12.5 times/sec
-      lastRingUpdate = nowMs;
+  // ---- STATUS RING (imminent only, smooth breathing) ----
+  static uint32_t lastRingUpdate = 0;
+  if (nowMs - lastRingUpdate > 80) {   // update ~12.5 times/sec
+    lastRingUpdate = nowMs;
 
-      String todayISO = todayISO_UK();
-      struct tm lt2{};
-      bool haveTime = nowLocalUK(lt2);
-      int hour = haveTime ? lt2.tm_hour : 0;
+    String todayISO = todayISO_UK();
+    struct tm lt2{};
+    bool haveTime = nowLocalUK(lt2);
+    int hour = haveTime ? lt2.tm_hour : 0;
 
-      bool haveUpcoming = (g_nextDate.length() >= 10);
+    bool haveUpcoming = (g_nextDate.length() >= 10);
 
-      // Truck state = collection today after 06:00
-      bool bringBackState = (haveUpcoming && g_nextDate == todayISO && hour >= 6);
+    // Truck state = collection today after 06:00
+    bool bringBackState = (haveUpcoming && g_nextDate == todayISO && hour >= 6);
 
-      int bType = bannerTypeForDate(g_nextDate);
-      uint16_t ringColor = TFT_BLUE;
-      bool drawRing = true;
+    int bType = bannerTypeForDate(g_nextDate);
+    uint16_t ringColor = TFT_BLUE;
+    bool drawRing = true;
 
-      if (bringBackState) {
-        ringColor = TFT_CYAN;
-      } else if (bType == 1) {
-        ringColor = TFT_YELLOW;               // tomorrow (before 3pm)
-      } else if (bType == 2) {
-        // red breathing
-        float phase = (millis()%1200)/1200.0f;
-        float intensity = 0.5f + 0.5f*sinf(phase*2.0f*3.14159f);
-        ringColor = pulsingRedColor(intensity);
+    if (bringBackState) {
+      ringColor = TFT_CYAN;
+    } else if (bType == 1) {
+      ringColor = TFT_YELLOW;
+    } else if (bType == 2) {
+      float phase = (millis()%1200)/1200.0f;
+      float intensity = 0.5f + 0.5f*sinf(phase*2.0f*3.14159f);
+      ringColor = pulsingRedColor(intensity);  // breathing red
+    } else {
+      if (!haveUpcoming) {
+        ringColor = TFT_BLUE;      // TEST BLUE / no upcoming date
       } else {
-        // bType == 0
-        if (!haveUpcoming) {
-          // TEST BLUE / genuinely no upcoming date → blue ring
-          ringColor = TFT_BLUE;
-        } else {
-          // collection is not imminent (more than 1 day away) → NO RING
-          drawRing = false;
-        }
-      }
-
-      if (drawRing) {
-        int cx = tft.width()/2;
-        int cy = tft.height()/2;
-        int rOuter = min(tft.width(), tft.height())/2 - 2;
-        int thickness = 3;
-        for (int i=0;i<thickness;i++) {
-          tft.drawCircle(cx, cy, rOuter - i, ringColor);
-        }
+        drawRing = false;          // next collection is far away → no ring
       }
     }
+
+    if (drawRing) {
+      int cx = tft.width()/2;
+      int cy = tft.height()/2;
+      int rOuter = min(tft.width(), tft.height())/2 - 2;
+      int thickness = 3;
+      for (int i=0;i<thickness;i++) {
+        tft.drawCircle(cx, cy, rOuter - i, ringColor);
+      }
+    }
+  }
 
 
   // Hourly JSON refresh
@@ -766,4 +838,5 @@ void loop() {
     }
   }
 }
+
 /*=== END PART 3/3 ===========================================================*/
