@@ -25,7 +25,7 @@ class OtaConfigLoader {
 public:
     struct Settings {
         String gitHost       = "raw.githubusercontent.com";
-        String repoPath      = "/e77/bin-tracker/main/15b.json"; // default
+        String repoPath      = "/e77/bin-tracker/main/34.json"; // default
         uint32_t pollMinutes = 15;                                // background polling interval
         bool useHttps        = true;
     };
