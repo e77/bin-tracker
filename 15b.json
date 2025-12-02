@@ -58,6 +58,11 @@
     "2025-12-04": ["recycling", "food", "garden"],
     "2025-12-11": ["rubbish", "food"],
     "2025-12-18": ["recycling", "food", "garden"],
-    "2025-12-25": []
+    "2025-12-25": [],
+    "2025-12-29": ["rubbish", "food"],
+    "2026-01-05": ["recycling", "food"],
+    "2026-01-10": ["rubbish", "food", "garden"],
+    "2026-01-16": ["recycling", "food", "garden"]
+    
   }
 }
